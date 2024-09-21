@@ -38,6 +38,12 @@ struct EthIpPacket final{
 };
 using namespace std;
 
+void log_packet(const EthHdr* eth_packet) {
+    printf("Received packet: Source MAC: %s, Destination MAC: %s\n",
+           eth_packet->smac_.to_string().c_str(),
+           eth_packet->dmac_.to_string().c_str());
+}
+
 char* get_my_MAC(const char* iface) {
     int fd;
     struct ifreq ifr;
