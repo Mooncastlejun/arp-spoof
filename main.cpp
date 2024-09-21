@@ -38,10 +38,10 @@ struct EthIpPacket final{
 };
 using namespace std;
 
-void log_packet(const EthHdr* eth_packet) {
-    printf("Received packet: Source MAC: %s, Destination MAC: %s\n",
-           eth_packet->smac_.to_string().c_str(),
-           eth_packet->dmac_.to_string().c_str());
+void modify_packet(EthIpPacket* Ippacket, Mac target_MAC) {
+    if (Ippacket->ip_.d_addr == Ip("192.168.10.2")) { // 특정 IP
+        Ippacket->eth_.dmac_ = target_MAC; // 목표 MAC으로 변경
+    }
 }
 
 char* get_my_MAC(const char* iface) {
@@ -156,6 +156,9 @@ void relay(pcap_t* handle,struct pcap_pkthdr* header,const unsigned char* pkt_da
 		memcpy(&Ippacket.ip_,res_Ip_packet,sizeof(IpHdr));
 		memcpy(&Ippacket.eth_,res_eth_packet,sizeof(EthHdr));
 		Ippacket.eth_=*res_eth_packet;
+
+		modify_packet(&Ippacket,t_MAC);
+		
 		if(ntohl(res_Ip_packet->d_addr)==Ip(t_IP)&&ntohl(res_Ip_packet->s_addr)==Ip(s_IP)){
 			res_eth_packet->dmac_ = Mac(t_MAC);
 			int res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&Ippacket), sizeof(EthIpPacket));
