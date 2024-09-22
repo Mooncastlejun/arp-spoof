@@ -1,4 +1,5 @@
 LDLIBS=-lpcap
+CXXFLAGS += -fPIC
 AR=ar
 RANLIB=ranlib
 
