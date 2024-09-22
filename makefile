@@ -1,4 +1,3 @@
-export LLVM_COMPILER=clang
 LDLIBS=-lpcap
 CXXFLAGS += -fPIC
 AR=ar
