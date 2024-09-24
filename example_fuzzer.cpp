@@ -1,30 +1,60 @@
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <pcap.h>
-#include "mac.h"
-#include "ip.h"
+#include <string>
+#include <map>
+#include <iostream>
+#include "ethhdr.h"
+#include "arphdr.h"
 
-// Fuzzer 엔트리 포인트
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-    if (size < 32) return 0; // 입력 데이터가 너무 작으면 무시
+// Include any other necessary headers and define necessary structures
+#include "main.h"
 
-    // 임의의 IP 주소 생성
-    Ip send_ip(std::string(std::to_string(data[0]) + "." + std::to_string(data[1]) + "." + std::to_string(data[2]) + "." + std::to_string(data[3])));
-    Ip target_ip(std::string(std::to_string(data[4]) + "." + std::to_string(data[5]) + "." + std::to_string(data[6]) + "." + std::to_string(data[7])));
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
+    // Check for valid input size
+    if (Size < 1) return 0;
 
-    // 임의의 MAC 주소 생성
-    Mac send_mac = Mac::randomMac();
-    Mac target_mac = Mac::randomMac();
+    // Create a string from the raw input
+    std::string input(reinterpret_cast<const char*>(Data), Size);
 
-    // ARP 스푸핑 프로그램 실행
-    std::string send_ip_str = static_cast<std::string>(send_ip);
-    std::string target_ip_str = static_cast<std::string>(target_ip);
+    // Split the input into tokens (assuming the format: "interface ip1 ip2")
+    char* args[3];
+    int arg_count = 0;
 
-    char* argv[] = { "arp-spoof", "wlan0", const_cast<char*>(send_ip_str.c_str()), const_cast<char*>(target_ip_str.c_str()) };
-    int argc = sizeof(argv) / sizeof(argv[0]);
+    // Tokenize the input based on spaces or other delimiters
+    char* token = strtok(const_cast<char*>(input.c_str()), " ");
+    while (token != nullptr && arg_count < 3) {
+        args[arg_count++] = token;
+        token = strtok(nullptr, " ");
+    }
 
-    get_my_MAC(argv[1]);
+    // Ensure we have the right number of arguments
+    if (arg_count < 3) return 0;
 
+    // Prepare the arguments for the main function
+    char* dev = args[0];
+    char* ip1 = args[1];
+    char* ip2 = args[2];
+
+    // Call the main function with the parsed arguments
+    // Note: You need to modify the main function to take char** argv instead of int argc, char* argv[]
+    char* new_argv[4] = { nullptr, dev, ip1, ip2 };
+    int new_argc = 3; // argc will be 3 since we skip the program name
+
+    // Initialize any other necessary components here
+    char errbuf[PCAP_ERRBUF_SIZE];
+    pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
+    if (handle == nullptr) {
+        fprintf(stderr, "couldn't open device %s(%s)\n", dev, errbuf);
+        return 0;
+    }
+
+    // Call the main logic of the program
+    main(new_argc, new_argv);
+
+    // Cleanup
+    pcap_close(handle);
+    
     return 0;
 }
