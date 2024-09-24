@@ -1,3 +1,16 @@
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <pcap.h>
+#include <string>
+#include <map>
+#include <iostream>
+#include "ethhdr.h"
+#include "arphdr.h"
+
+// Include any other necessary headers and define necessary structures
+#include "main.h"
+
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     // Check if size is valid
     if (size < 1) return 0;
