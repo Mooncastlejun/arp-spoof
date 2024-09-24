@@ -24,8 +24,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     char* argv[] = { "arp-spoof", "wlan0", const_cast<char*>(send_ip_str.c_str()), const_cast<char*>(target_ip_str.c_str()) };
     int argc = sizeof(argv) / sizeof(argv[0]);
 
-    // 기존 main 함수 호출 (argv와 argc 전달)
-    main(argc, argv); // main 함수에 직접 전달 (조정 필요)
+    get_my_MAC(argv[1]);
 
     return 0;
 }
