@@ -62,7 +62,7 @@ char* get_my_IP(const char *iface) {
  }
 
 
-Mac get_others_MAC(pcap_t* handle,char* dev,Ip s_IP, Ip m_IP, Mac m_MAC){
+Mac get_others_MAC(pcap_t* handle,const char* dev,Ip s_IP, Ip m_IP, Mac m_MAC){
 	EthArpPacket packet;
 
 	packet.eth_.dmac_ = Mac("FF:FF:FF:FF:FF:FF");
@@ -101,7 +101,7 @@ Mac get_others_MAC(pcap_t* handle,char* dev,Ip s_IP, Ip m_IP, Mac m_MAC){
 	}
 }
 
-void send_arp(pcap_t* handle,char* dev, Mac s_MAC,Mac m_MAC,Ip s_IP, Ip t_IP){
+void send_arp(pcap_t* handle,const char* dev, Mac s_MAC,Mac m_MAC,Ip s_IP, Ip t_IP){
 	EthArpPacket packet;
 
 	packet.eth_.dmac_ = s_MAC;
@@ -125,7 +125,7 @@ void send_arp(pcap_t* handle,char* dev, Mac s_MAC,Mac m_MAC,Ip s_IP, Ip t_IP){
 	return;
 }
 
-void relay(pcap_t* handle,struct pcap_pkthdr* header,const unsigned char* pkt_data,char* dev,char* errbuf, Mac t_MAC,Mac m_MAC,Mac s_MAC, Ip s_IP, Ip t_IP){
+void relay(pcap_t* handle,struct pcap_pkthdr* header,const unsigned char* pkt_data,const char* dev,char* errbuf, Mac t_MAC,Mac m_MAC,Mac s_MAC, Ip s_IP, Ip t_IP){
 	struct EthHdr* res_eth_packet=(struct EthHdr*)pkt_data;
  	if(res_eth_packet->type()==EthHdr::Ip4){
 		struct IpHdr* res_Ip_packet=(struct IpHdr*)(pkt_data+sizeof(EthHdr));
@@ -154,7 +154,7 @@ void relay(pcap_t* handle,struct pcap_pkthdr* header,const unsigned char* pkt_da
 	return;
 }
 
-void reinfect(pcap_t* handle,struct pcap_pkthdr* header,const unsigned char* pkt_data,char* errbuf, char* dev, Mac s_MAC,Mac t_MAC, Mac m_MAC, Ip s_IP, Ip t_IP){
+void reinfect(pcap_t* handle,struct pcap_pkthdr* header,const unsigned char* pkt_data,char* errbuf,const char* dev, Mac s_MAC,Mac t_MAC, Mac m_MAC, Ip s_IP, Ip t_IP){
 	struct EthHdr* res_eth_packet=(struct EthHdr*)pkt_data;
 	if(res_eth_packet->type()==EthHdr::Arp){
 		struct ArpHdr* res_arp_packet=(struct ArpHdr*)(pkt_data+sizeof(EthHdr));

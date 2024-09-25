@@ -36,10 +36,10 @@ struct EthIpPacket final {
 
 char* get_my_MAC(const char* iface);
 char* get_my_IP(const char* iface);
-Mac get_others_MAC(pcap_t* handle, char* dev, uint32_t s_IP, uint32_t m_IP, Mac m_MAC);
-void send_arp(pcap_t* handle, char* dev, Mac s_MAC, Mac m_MAC, uint32_t s_IP, uint32_t t_IP);
-void relay(pcap_t* handle, struct pcap_pkthdr* header, const unsigned char* pkt_data, char* dev, char* errbuf, Mac t_MAC, Mac m_MAC, Mac s_MAC, uint32_t s_IP, uint32_t t_IP);
-void reinfect(pcap_t* handle, struct pcap_pkthdr* header, const unsigned char* pkt_data, char* errbuf, char* dev, Mac s_MAC, Mac t_MAC, Mac m_MAC, uint32_t s_IP, uint32_t t_IP);
+Mac get_others_MAC(pcap_t* handle, const char* dev, uint32_t s_IP, uint32_t m_IP, Mac m_MAC);
+void send_arp(pcap_t* handle, const char* dev, Mac s_MAC, Mac m_MAC, uint32_t s_IP, uint32_t t_IP);
+void relay(pcap_t* handle, struct pcap_pkthdr* header, const unsigned char* pkt_data, const char* dev, char* errbuf, Mac t_MAC, Mac m_MAC, Mac s_MAC, uint32_t s_IP, uint32_t t_IP);
+void reinfect(pcap_t* handle, struct pcap_pkthdr* header, const unsigned char* pkt_data, char* errbuf,const char* dev, Mac s_MAC, Mac t_MAC, Mac m_MAC, uint32_t s_IP, uint32_t t_IP);
 void usage();
 
 #endif // MAIN_H
