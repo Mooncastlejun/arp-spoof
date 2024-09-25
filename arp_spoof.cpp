@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include "ethhdr.h"
 #include "arphdr.h"
-#include "main.h"
+#include "apr_spoof.h"
 
 #pragma pack(push, 1)
 struct EthArpPacket final {
@@ -206,7 +206,7 @@ void usage() {
 	printf("sample: send-arp-test wlan0 192.168.10.1 192.168.10.3 \n");
 }
 
-int main(int argc, char* argv[]) {
+/**int main(int argc, char* argv[]) {
 	if (argc%2 != 0||argc==2) {
 		usage();
 		return -1;
@@ -261,4 +261,4 @@ int main(int argc, char* argv[]) {
 			}
 		}
 	return 0;
-}
+}*/

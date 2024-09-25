@@ -3,7 +3,7 @@
 #include <iostream>
 #include <cstring>
 #include <map>
-#include "main.h"
+#include "arp_spoof.h"
 
 // Fuzzing 테스트에 필요한 전역 상태 유지
 std::map<Ip, Mac> ipmap;
