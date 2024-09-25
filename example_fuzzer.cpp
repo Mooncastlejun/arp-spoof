@@ -23,10 +23,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     const Ip send_IP = *reinterpret_cast<const Ip*>(data + 1);
     const Ip tar_IP = *reinterpret_cast<const Ip*>(data + 1 + sizeof(Ip));
 
-    // MAC 주소 얻기 (랜덤 MAC 주소로 초기화)
-    uint8_t mac[Mac::SIZE]; // 배열로 정의
-    get_my_MAC(mac); // MAC 주소를 mac 배열에 저장
-    Mac my_MAC(mac);
+    // MAC 주소 얻기
+    char* mac_str = get_my_MAC(dev); // MAC 주소를 문자열 형태로 얻음
+    Mac my_MAC(mac_str); // 문자열을 통해 Mac 구조체를 초기화
 
     pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
     if (handle == nullptr) {
@@ -70,5 +69,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
     // 자원 정리
     pcap_close(handle);
+    free(mac_str); // 동적으로 할당된 메모리 해제
     return 0;
 }
