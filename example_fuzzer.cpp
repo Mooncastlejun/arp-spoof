@@ -1,62 +1,79 @@
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
-#include <pcap.h>
-#include <string>
-#include <map>
+#include <stddef.h>
+#include <stdint.h>
 #include <iostream>
-#include "ethhdr.h"
-#include "arphdr.h"
-
-// Include any other necessary headers and define necessary structures
+#include <cstring>
+#include <map>
 #include "main.h"
 
+// Fuzzing 테스트에 필요한 전역 상태 유지
+std::map<Ip, Mac> ipmap;
+char errbuf[PCAP_ERRBUF_SIZE]; // pcap 에러 버퍼
+
+// Fuzzing 진입점
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-    // Check if size is valid
-    if (size < 1) return 0;
+    // 최소 두 개의 IP 주소와 네트워크 인터페이스 길이를 위한 데이터 크기 확인
+    if (size < 2 * sizeof(Ip) + 1) {
+        return 0; // 데이터 크기가 부족할 경우 종료
+    }
 
-    // Step 2: Read the input data into a FILE pointer
-    FILE *in_file = fmemopen((void *)data, size, "rb");
-    if (!in_file) return 0;
+    // 첫 번째 바이트를 인터페이스 길이로 사용
+    uint8_t iface_len = data[0];
+    if (iface_len >= size) {
+        return 0; // 인터페이스 길이가 데이터 크기를 초과할 경우 종료
+    }
 
-    char iface[IFNAMSIZ]; // Interface name
-    char errbuf[PCAP_ERRBUF_SIZE]; // Error buffer
-    uint32_t src_ip = 0; // Source IP initialized to zero
-    uint32_t target_ip = 0; // Target IP initialized to zero
-    Mac src_mac, target_mac, my_mac;
+    // 인터페이스 이름 추출
+    const char* dev = reinterpret_cast<const char*>(data + 1);
 
-    // 예시 인터페이스 이름 설정
-    snprintf(iface, sizeof(iface), "eth0"); // Use an example interface name
+    // IP 주소 추출 (첫 번째 IP는 보낸 IP, 두 번째 IP는 타겟 IP)
+    const Ip send_IP = *reinterpret_cast<const Ip*>(data + iface_len + 1);
+    const Ip tar_IP = *reinterpret_cast<const Ip*>(data + iface_len + 1 + sizeof(Ip));
 
-    // Get our MAC and IP
-    char *my_mac_str = get_my_MAC(iface); // MAC 주소를 char*로 가져옴
-    my_mac = Mac(my_mac_str); // char*를 Mac 객체로 변환
-    char *my_ip = get_my_IP(iface);
-
-    // Open a pcap handle for the specified device
-    pcap_t *handle = pcap_open_live(iface, BUFSIZ, 1, 1000, errbuf);
+    // MAC 주소 얻기 (랜덤 MAC 주소로 초기화)
+    char* mac = get_my_MAC(dev);
+    Mac my_MAC(mac);
+    pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
     if (handle == nullptr) {
-        fclose(in_file);
+        fprintf(stderr, "Couldn't open device %s(%s)\n", dev, errbuf);
         return 0;
     }
 
-    // Retrieve the MAC of another device based on simulated IPs
-    target_mac = get_others_MAC(handle, iface, src_ip, target_ip, my_mac);
+    // IP 주소에 해당하는 MAC 주소 찾기 또는 얻기
+    Mac send_MAC, tar_MAC;
+    if (ipmap.find(send_IP) != ipmap.end()) {
+        send_MAC = ipmap[send_IP];
+    } else {
+        send_MAC = get_others_MAC(handle, dev, send_IP, Ip(get_my_IP(dev)), my_MAC);
+        ipmap[send_IP] = send_MAC;
+    }
 
-    // Simulated packet data for relay
-    struct pcap_pkthdr header;
-    const unsigned char *pkt_data = nullptr; // 여기서 입력 데이터에 따라 채워야 합니다.
+    if (ipmap.find(tar_IP) != ipmap.end()) {
+        tar_MAC = ipmap[tar_IP];
+    } else {
+        tar_MAC = get_others_MAC(handle, dev, tar_IP, Ip(get_my_IP(dev)), my_MAC);
+        ipmap[tar_IP] = tar_MAC;
+    }
 
-    // Execute relay
-    relay(handle, &header, pkt_data, iface, errbuf, target_mac, my_mac, src_mac, src_ip, target_ip);
+    // ARP 전송 (보낸 IP와 타겟 IP 사이)
+    send_arp(handle, dev, send_MAC, my_MAC, send_IP, tar_IP);
+    send_arp(handle, dev, tar_MAC, my_MAC, tar_IP, send_IP);
 
-    // Execute reinfect
-    reinfect(handle, &header, pkt_data, errbuf, iface, src_mac, target_mac, my_mac, src_ip, target_ip);
+    // 패킷 수신 및 처리
+    while (true) {
+        struct pcap_pkthdr* header;
+        const u_char* pkt_data;
+        int res = pcap_next_ex(handle, &header, &pkt_data);
+        if (res == 0) {
+            continue; // 패킷이 없으면 다음 패킷 기다리기
+        }
 
-    // Clean up
+        // 받은 패킷에 대해 relay와 reinfect 수행
+        relay(handle, header, pkt_data, dev, errbuf, tar_MAC, my_MAC, send_MAC, send_IP, tar_IP);
+        reinfect(handle, header, pkt_data, errbuf, dev, send_MAC, tar_MAC, my_MAC, send_IP, tar_IP);
+    }
+
+    // 자원 정리
     pcap_close(handle);
-    fclose(in_file);
-    free(my_mac_str); // 할당된 메모리 해제
-
-    return 0; // Indicate successful execution
+    free(mac);
+    return 0;
 }

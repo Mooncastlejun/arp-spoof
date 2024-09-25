@@ -9,7 +9,7 @@ OBJ_FILES = main.o arphdr.o ethhdr.o ip.o mac.o
 all: send-arp-test libarp.a libarp.so
 
 # 개별 오브젝트 파일 컴파일
-main.o: mac.h ip.h ethhdr.h arphdr.h main.cpp main.h
+main.o: mac.h ip.h ethhdr.h arphdr.h main.cpp
 arphdr.o: mac.h ip.h arphdr.h arphdr.cpp
 ethhdr.o: mac.h ethhdr.h ethhdr.cpp
 ip.o: ip.h ip.cpp

@@ -1,5 +1,6 @@
 #include "mac.h"
 
+
 Mac::Mac(const std::string& r) {
 	std::string s;
 	for(char ch: r) {

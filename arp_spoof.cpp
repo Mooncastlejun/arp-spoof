@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include "ethhdr.h"
 #include "arphdr.h"
+#include "main.h"
 
 #pragma pack(push, 1)
 struct EthArpPacket final {
@@ -158,7 +159,7 @@ void relay(pcap_t* handle,struct pcap_pkthdr* header,const unsigned char* pkt_da
 		Ippacket.eth_=*res_eth_packet;
 
 		modify_packet(&Ippacket,t_MAC);
-		
+
 		if(ntohl(res_Ip_packet->d_addr)==Ip(t_IP)&&ntohl(res_Ip_packet->s_addr)==Ip(s_IP)){
 			res_eth_packet->dmac_ = Mac(t_MAC);
 			int res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&Ippacket), sizeof(EthIpPacket));
