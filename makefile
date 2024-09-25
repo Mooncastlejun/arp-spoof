@@ -1,5 +1,6 @@
 LDLIBS=-lpcap
-CXXFLAGS += -fPIC
+CXXFLAGS = -fsanitize=fuzzer-no-link -fno-omit-frame-pointer -g -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION -O2 -fsanitize=address,undefined -fsanitize-address-use-after-scope -g -fPIC
+LIB_FUZZING_ENGINE = -fsanitize=fuzzer
 AR=ar
 RANLIB=ranlib
 
@@ -16,8 +17,8 @@ ip.o: ip.h ip.cpp
 mac.o : mac.h mac.cpp
 
 # 실행 파일 생성
-send-arp-test: $(OBJ_FILES)
-	$(LINK.cc) $^ $(LOADLIBES) $(LDLIBS) -o $@
+send-arp-test: arp_spoof.o arphdr.o ethhdr.o ip.o mac.o
+	$(CXX) $(CXXFLAGS) arp_spoof.o arphdr.o ethhdr.o ip.o mac.o -lpcap -o send-arp-test $(LIB_FUZZING_ENGINE) ./libarp.a
 
 # 정적 라이브러리(libarp.a) 생성
 libarp.a: $(OBJ_FILES)
