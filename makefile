@@ -1,5 +1,5 @@
 LDLIBS = -lpcap
-CXXFLAGS = -fsanitize=fuzzer-no-link -fno-omit-frame-pointer -g -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION -O2 -fsanitize=address,undefined -fsanitize-address-use-after-scope -g -fPIC
+CXXFLAGS = -fsanitize=fuzzer-no-link -fno-omit-frame-pointer -g -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION -O2 -fsanitize=address,undefined -fsanitize-address-use-after-scope -g -std=c++11 -I. /prompt_fuzz/output/build/arp-spoof/src/arp-spoof/example_fuzzer.cpp -o /example_fuzzer -fsanitize=fuzzer ./libarp.a -lpcap -fPIC
 LIB_FUZZING_ENGINE = -fsanitize=fuzzer
 AR = ar
 RANLIB = ranlib
