@@ -1,24 +1,29 @@
-LDLIBS=-lpcap
+LDLIBS = -lpcap
 CXXFLAGS = -fsanitize=fuzzer-no-link -fno-omit-frame-pointer -g -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION -O2 -fsanitize=address,undefined -fsanitize-address-use-after-scope -g -fPIC
 LIB_FUZZING_ENGINE = -fsanitize=fuzzer
-AR=ar
-RANLIB=ranlib
+AR = ar
+RANLIB = ranlib
 
 # Object files
 OBJ_FILES = arp_spoof.o arphdr.o ethhdr.o ip.o mac.o
 
-all: send-arp-test libarp.a libarp.so
+all: libarp.a libarp.so example_fuzzer
 
 # 개별 오브젝트 파일 컴파일
 arp_spoof.o: mac.h ip.h ethhdr.h arphdr.h arp_spoof.cpp
+	$(CXX) $(CXXFLAGS) -c arp_spoof.cpp
 arphdr.o: mac.h ip.h arphdr.h arphdr.cpp
+	$(CXX) $(CXXFLAGS) -c arphdr.cpp
 ethhdr.o: mac.h ethhdr.h ethhdr.cpp
+	$(CXX) $(CXXFLAGS) -c ethhdr.cpp
 ip.o: ip.h ip.cpp
+	$(CXX) $(CXXFLAGS) -c ip.cpp
 mac.o : mac.h mac.cpp
+	$(CXX) $(CXXFLAGS) -c mac.cpp
 
-# 실행 파일 생성
-send-arp-test: arp_spoof.o arphdr.o ethhdr.o ip.o mac.o
-	$(CXX) $(CXXFLAGS) arp_spoof.o arphdr.o ethhdr.o ip.o mac.o -lpcap -o send-arp-test $(LIB_FUZZING_ENGINE) ./libarp.a
+# Fuzzing 타겟 생성
+example_fuzzer: $(OBJ_FILES) example_fuzzer.o
+	$(CXX) $(CXXFLAGS) -std=c++11 example_fuzzer.cpp -o example_fuzzer $(LIB_FUZZING_ENGINE) ./libarp.a
 
 # 정적 라이브러리(libarp.a) 생성
 libarp.a: $(OBJ_FILES)
@@ -31,4 +36,4 @@ libarp.so: $(OBJ_FILES)
 
 # 클린업
 clean:
-	rm -f send-arp-test *.o libarp.a libarp.so
+	rm -f send-arp-test *.o libarp.a libarp.so example_fuzzer example_fuzzer.o
