@@ -18,7 +18,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     }
 
     // 2. 인터페이스 이름을 "eth0"으로 고정
-    const char* dev = "eth0";
+    const char* dev = "eth0"; // const char*로 수정
 
     // 3. IP 주소 추출 (첫 번째 IP는 보낸 IP, 두 번째 IP는 타겟 IP)
     const Ip send_IP = *reinterpret_cast<const Ip*>(data + 1); // 인터페이스 길이 후 첫 번째 IP
@@ -26,8 +26,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
     // 4. MAC 주소 얻기 (랜덤 MAC 주소로 초기화)
     char* mac = get_my_MAC(dev);
-    Mac my_MAC(mac);
-    
+    Mac my_MAC(mac); // Mac 객체 생성 시 mac 배열을 사용
+    free(mac); // 메모리 해제는 여기서 진행
+
     // 5. pcap 핸들러 초기화
     pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
     if (handle == nullptr) {
@@ -71,6 +72,5 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
     // 10. 자원 정리
     pcap_close(handle); // pcap 핸들 닫기
-    free(mac); // 동적 메모리 해제
     return 0; // 정상 종료
 }
