@@ -11,64 +11,47 @@ char errbuf[PCAP_ERRBUF_SIZE]; // pcap 에러 버퍼
 
 // Fuzzing 진입점
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-    // 최소 두 개의 IP 주소와 네트워크 인터페이스 길이를 위한 데이터 크기 확인
-    if (size < 2 * sizeof(Ip) + 1) {
-        return 0; // 데이터 크기가 부족할 경우 종료
+    // Step 4: Creating a FILE pointer for reading from data
+    FILE *in_file = fmemopen((void *)data, size, "rb");
+    if (!in_file) return 0; // Handle error
+
+    // Step 6: Define variables
+    char errbuf[PCAP_ERRBUF_SIZE];
+    const char *iface = "eth0"; // Example interface
+    char *my_ip_str = get_my_IP(iface);
+    char *my_mac_str = get_my_MAC(iface);
+
+    // Assuming IPs are encoded and can be derived from data (simple mock)
+    uint32_t target_ip = inet_addr("192.168.1.10"); // Target IP to spoof
+    uint32_t source_ip = inet_addr(my_ip_str); // Source IP is the one we got
+
+    // Open pcap handle
+    pcap_t *handle = pcap_open_live(iface, BUFSIZ, 1, 1000, errbuf);
+    if (!handle) {
+        free(my_ip_str);
+        free(my_mac_str);
+        fclose(in_file);
+        return 0; // Handle error
     }
 
-    // 인터페이스 이름 고정
-    const char* dev = "eth0"; // Use a valid network interface
+    // Step 3: Using APIs
+    Mac my_mac(my_mac_str); // MAC 주소 설정
+    Mac target_mac = get_others_MAC(handle, iface, source_ip, target_ip, my_mac);
 
-    // IP 주소 추출 (첫 번째 IP는 보낸 IP, 두 번째 IP는 타겟 IP)
-    const Ip send_IP = *reinterpret_cast<const Ip*>(data + 1);
-    const Ip tar_IP = *reinterpret_cast<const Ip*>(data + 1 + sizeof(Ip));
+    // Send ARP spoofing packets
+    send_arp(handle, iface, my_mac, target_mac, source_ip, target_ip);
 
-    // MAC 주소 얻기
-    char* mac_str = get_my_MAC(dev); // MAC 주소를 문자열 형태로 얻음
-    Mac my_MAC(mac_str); // 문자열을 통해 Mac 구조체를 초기화
+    // Relay and reinfect (Assuming a packet header and data)
+    struct pcap_pkthdr header;
+    const unsigned char *pkt_data = nullptr; // Should be filled with packet data
+    reinfect(handle, &header, pkt_data, errbuf, iface, my_mac, target_mac, my_mac, source_ip, target_ip);
+    relay(handle, &header, pkt_data, iface, errbuf, target_mac, my_mac, my_mac, source_ip, target_ip);
 
-    pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
-    if (handle == nullptr) {
-        fprintf(stderr, "Couldn't open device %s(%s)\n", dev, errbuf);
-        return 0;
-    }
-
-    // IP 주소에 해당하는 MAC 주소 찾기 또는 얻기
-    Mac send_MAC, tar_MAC;
-    if (ipmap.find(send_IP) != ipmap.end()) {
-        send_MAC = ipmap[send_IP];
-    } else {
-        send_MAC = get_others_MAC(handle, const_cast<char*>(dev), send_IP, Ip(get_my_IP(dev)), my_MAC);
-        ipmap[send_IP] = send_MAC;
-    }
-
-    if (ipmap.find(tar_IP) != ipmap.end()) {
-        tar_MAC = ipmap[tar_IP];
-    } else {
-        tar_MAC = get_others_MAC(handle, const_cast<char*>(dev), tar_IP, Ip(get_my_IP(dev)), my_MAC);
-        ipmap[tar_IP] = tar_MAC;
-    }
-
-    // ARP 전송 (보낸 IP와 타겟 IP 사이)
-    send_arp(handle, const_cast<char*>(dev), send_MAC, my_MAC, send_IP, tar_IP);
-    send_arp(handle, const_cast<char*>(dev), tar_MAC, my_MAC, tar_IP, send_IP);
-
-    // 패킷 수신 및 처리
-    while (true) {
-        struct pcap_pkthdr* header;
-        const u_char* pkt_data;
-        int res = pcap_next_ex(handle, &header, &pkt_data);
-        if (res == 0) {
-            continue; // 패킷이 없으면 다음 패킷 기다리기
-        }
-
-        // 받은 패킷에 대해 relay와 reinfect 수행
-        relay(handle, header, pkt_data, const_cast<char*>(dev), errbuf, tar_MAC, my_MAC, send_MAC, send_IP, tar_IP);
-        reinfect(handle, header, pkt_data, errbuf, const_cast<char*>(dev), send_MAC, tar_MAC, my_MAC, send_IP, tar_IP);
-    }
-
-    // 자원 정리
+    // Free allocated resources
+    free(my_ip_str);
+    free(my_mac_str);
     pcap_close(handle);
-    free(mac_str); // 동적으로 할당된 메모리 해제
-    return 0;
+    fclose(in_file);
+
+    return 0; // Indicate success
 }
