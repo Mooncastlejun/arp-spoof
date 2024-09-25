@@ -13,30 +13,6 @@
 #include "arphdr.h"
 #include "arp_spoof.h"
 
-#pragma pack(push, 1)
-struct EthArpPacket final {
-	EthHdr eth_;
-	ArpHdr arp_;
-};
-#pragma pack(pop)
-
-struct IpHdr{
-	uint8_t version;
-	uint8_t typeofservice;
-	uint16_t toal_len;
-	uint8_t id;
-	uint16_t frag_off;
-	uint8_t livetime;
-	uint8_t protocol;
-	uint16_t checksum;
-	Ip s_addr;
-	Ip d_addr;
-};
-
-struct EthIpPacket final{
-	EthHdr eth_;
-	IpHdr ip_;
-};
 using namespace std;
 
 void modify_packet(EthIpPacket* Ippacket, Mac target_MAC) {
